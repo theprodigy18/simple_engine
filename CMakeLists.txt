@@ -19,10 +19,19 @@ if (POLICY CMP0141)
   set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 
-set(SOURCES "src/main.cpp")
+if (WIN32)
+	file(GLOB PLATFORM_SOURCES  "src/platform/win32/*.cpp")
+elseif (UNIX AND NOT APPLE)
+	file(GLOB PLATFORM_SOURCES  "src/platform/linux/*.cpp")
+else()
+	message(FATAL_ERROR "Platform not supported")
+endif()
+
+set(SOURCES ${PLATFORM_SOURCES} "src/main.cpp")
 
 # Add source to this project's executable.
 add_executable (simple_engine ${SOURCES})
+
 
 # Define header search path.
 target_include_directories(simple_engine PRIVATE

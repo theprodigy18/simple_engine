@@ -8,5 +8,6 @@
 #include "logger.hpp"
 #include "primitive_type.hpp"
 #include "id.hpp"
+#include "utilities/utilities.hpp"
 
 

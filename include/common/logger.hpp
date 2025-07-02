@@ -57,10 +57,12 @@ inline void _Log(const char* prefix, const char* file, int line, TextColor color
     va_end(args);
 }
 
+
 // --- Logging Macros ---
-#define SM_TRACE(...) _Log("TRACE: ", __FILE__, __LINE__, TEXT_COLOR_GREEN, __VA_ARGS__)
-#define SM_WARN(...) _Log("WARN:  ", __FILE__, __LINE__, TEXT_COLOR_YELLOW, __VA_ARGS__)
-#define SM_ERROR(...) _Log("ERROR: ", __FILE__, __LINE__, TEXT_COLOR_RED, __VA_ARGS__)
+#ifdef _DEBUG
+#define SM_TRACE(...) _Log("TRACE: ", __FILE__, __LINE__, TEXT_COLOR_GREEN, __VA_ARGS__) // Log Trace.
+#define SM_WARN(...) _Log("WARN:  ", __FILE__, __LINE__, TEXT_COLOR_YELLOW, __VA_ARGS__) // Log Warning.
+#define SM_ERROR(...) _Log("ERROR: ", __FILE__, __LINE__, TEXT_COLOR_RED, __VA_ARGS__)   // Log Error.
 
 // --- Assertion Macro ---
 #define SM_ASSERT(cond, ...)                      \
@@ -73,3 +75,11 @@ inline void _Log(const char* prefix, const char* file, int line, TextColor color
             DEBUG_BREAK();                        \
         }                                         \
     } while (0)
+
+#else
+#define SM_TRACE(...)
+#define SM_WARN(...)
+#define SM_ERROR(...)
+#define SM_ASSERT(cond, ...)
+
+#endif // _DEBUG

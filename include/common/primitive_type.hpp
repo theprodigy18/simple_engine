@@ -16,3 +16,9 @@ using i64 = int64_t;
 
 // Floating point types.
 using f32 = float;
+
+constexpr u32 u32InvalidID {u32(-1)}; // Invalid id for u32.
+
+// Char types.
+using WChar = wchar_t*;
+using Char  = char*;
