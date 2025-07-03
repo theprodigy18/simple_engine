@@ -135,7 +135,7 @@ namespace drop::platform
             wcex.hCursor       = LoadCursor(nullptr, IDC_ARROW);
             wcex.hIcon         = LoadIcon(hInstance, IDI_APPLICATION);
             wcex.hIconSm       = LoadIcon(hInstance, IDI_APPLICATION);
-            wcex.hbrBackground = CreateSolidBrush(RGB(0, 0, 0));
+            wcex.hbrBackground = CreateSolidBrush(RGB(50, 50, 50));
             wcex.lpszClassName = className;
             wcex.lpszMenuName  = nullptr;
 
@@ -244,6 +244,8 @@ namespace drop::platform
         info->isAlive = false;
         ReleaseDC(info->hwnd, info->hdc);
         DestroyWindow(info->hwnd);
+        info->hwnd = nullptr;
+        info->hdc  = nullptr;
         freeIds.push_back(id);
         activeWindowCount--;
     }
@@ -260,6 +262,20 @@ namespace drop::platform
     WindowHandle GetWindowHandle(windowID id)
     {
         return GetWindowInfoFromID(id).hwnd;
+    }
+
+    void Update(bool& running)
+    {
+        MSG msg {};
+        while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE))
+        {
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+            if (msg.message == WM_QUIT)
+            {
+                running = false;
+            }
+        }
     }
 
 } // namespace drop::platform

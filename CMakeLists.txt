@@ -32,12 +32,27 @@ set(SOURCES ${PLATFORM_SOURCES} "src/main.cpp")
 # Add source to this project's executable.
 add_executable (simple_engine ${SOURCES})
 
-
 # Define header search path.
 target_include_directories(simple_engine PRIVATE
 	"include"
 	"include/common"
 )
+
+
+if (WIN32)
+	target_link_libraries(simple_engine PRIVATE
+		"user32"
+	)
+elseif (UNIX AND NOT APPLE)
+	find_package(X11 REQUIRED)
+
+	target_include_directories(simple_engine PRIVATE
+		${X11_INCLUDE_DIR}
+	)
+	target_link_libraries(simple_engine PRIVATE
+		${X11_LIBRARIES}
+	)
+endif()
 
 # Set to C++20 if possible.
 if (CMAKE_VERSION VERSION_GREATER 3.12)

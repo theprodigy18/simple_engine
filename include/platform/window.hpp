@@ -6,21 +6,23 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <Windows.h>
+#elif defined(__linux__)
+#include <X11/Xlib.h>
 #endif // _WIN32
 
 namespace drop::platform
 {
+    DEFINE_TYPED_ID(windowID);
+    
 #ifdef _WIN32
     using TITLE        = const WChar;
     using WindowProc   = LRESULT (*)(HWND, UINT, WPARAM, LPARAM);
     using WindowHandle = HWND;
 #elif defined(__linux__)
     using TITLE        = const Char;
-    using WindowProc   = void(*);
-    using WindowHandle = void*;
+    using WindowProc   = void (*)(const XEvent&, windowID);
+    using WindowHandle = ::Window;
 #endif // _WIN32
-
-    DEFINE_TYPED_ID(windowID);
 
     enum WindowType : u8
     {
@@ -33,7 +35,7 @@ namespace drop::platform
 
     struct WindowInitInfo
     {
-        WindowHandle parent {nullptr};
+        WindowHandle parent;
         WindowProc   callback {nullptr};
         TITLE        title;
         i32          width {1280};
@@ -45,4 +47,9 @@ namespace drop::platform
     void         DestroyPlatformWindow(windowID id);
     void         Cleanup();
     WindowHandle GetWindowHandle(windowID id);
+    void         Update(bool& running);
+
+#ifdef __linux__
+    // Display* GetDisplay();    
+#endif // __linux__
 } // namespace drop::platform

@@ -1,60 +1,65 @@
 #include "platform/window.hpp"
 
-#ifdef _DEBUG && defined(_WIN32)
+using namespace drop;
+
+static bool s_Running {false};
+
+#ifdef _WIN32
+#ifdef _DEBUG
 #include <crtdbg.h>
 #endif // _DEBUG
-
-// #include <Windows.h>
-using namespace drop;
-LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    return DefWindowProcW(hWnd, msg, wParam, lParam);
+    return DefWindowProcW(hWnd, message, wParam, lParam);
 }
 
-platform::WindowProc callback {WndProc};
-static bool          s_Running {false};
+platform::WindowProc   callback {WndProc};
+platform::WindowHandle defaultHandle {nullptr};
+
+#elif defined(__linux__)
+void Callback(const XEvent& event, platform::windowID id) { }
+
+platform::WindowProc   callback {Callback};
+platform::WindowHandle defaultHandle {0};
+#endif // _WIN32
 
 int main()
 {
 #ifdef _WIN32
-    SetProcessDPIAware();
 #ifdef _DEBUG
     _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif // _DEBUG
+    SetProcessDPIAware();
+    platform::TITLE title1 {platform::TITLE(L"Normal Window")};
+    platform::TITLE title2 {platform::TITLE(L"Child Window")};
+    platform::TITLE title3 {platform::TITLE(L"NORESIZE Window")};
+#elif defined(__linux__)
+    platform::TITLE title1 {platform::TITLE("Normal Window")};
+    platform::TITLE title2 {platform::TITLE("Child Window")};
+    platform::TITLE title3 {platform::TITLE("NORESIZE Window")};
 #endif // _WIN32
 
-	//SM_ASSERT(false, "test");
+    // SM_ASSERT(false, "test");
 
-    platform::WindowInitInfo info1 {nullptr, callback, platform::TITLE(L"Main Window"), 1280, 720, platform::WINDOW_TYPE_NORMAL};
+    platform::WindowInitInfo info1 {defaultHandle, callback, title1, 1280, 720, platform::WINDOW_TYPE_NORMAL};
 
-    platform::windowID     id {platform::CreatePlatformWindow(&info1)};
-    platform::WindowHandle parent {platform::GetWindowHandle(id)};
-    platform::WindowInitInfo info2 {parent, callback, platform::TITLE(L"Child Window"), 640, 480, platform::WINDOW_TYPE_CHILD};
+    platform::windowID       id {platform::CreatePlatformWindow(&info1)};
+    platform::WindowHandle   parent {platform::GetWindowHandle(id)};
+    platform::WindowInitInfo info2 {parent, callback, title2, 640, 480, platform::WINDOW_TYPE_CHILD};
     platform::CreatePlatformWindow(&info2);
-	platform::CreatePlatformWindow(&info2);
-	platform::WindowInitInfo info3 {nullptr, callback, platform::TITLE(L"Hub"), 1366, 768, platform::WINDOW_TYPE_NORESIZE};
-	platform::CreatePlatformWindow(&info3);
+
+    platform::WindowInitInfo info3 {defaultHandle, callback, title3, 1440, 768, platform::WINDOW_TYPE_NORESIZE};
+    platform::CreatePlatformWindow(&info3);
 
     s_Running = true;
     while (s_Running)
     {
-        MSG msg {};
-        while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE))
-        {
-            TranslateMessage(&msg);
-            DispatchMessageW(&msg);
-
-            if (msg.message == WM_QUIT)
-            {
-                s_Running = false;
-            }
-        }
-
+        platform::Update(s_Running);
     }
 
     platform::Cleanup();
 
-	//int* leaks = new int[64];
+    // int* leaks = new int[64];
 
     return 0;
 }
