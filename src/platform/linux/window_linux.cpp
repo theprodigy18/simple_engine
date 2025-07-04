@@ -1,4 +1,5 @@
 #include "platform/window.hpp"
+#include "graphics/graphics.hpp"
 
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
@@ -13,11 +14,11 @@ namespace drop::platform
             ::Window              window {0};
             ::Window              parent {0};
             utl::vector<windowID> children;
-            GC                    context {nullptr};
             WindowProc            callback {nullptr};
             XRectangle            rc {0, 0, 0, 0};
             WindowType            type {WINDOW_TYPE_NORMAL};
             bool                  isAlive {false};
+            graphics::contextID contextID {id::invalidID};
         };
 
         utl::vector<WindowInfo>                windows;
@@ -81,6 +82,7 @@ namespace drop::platform
             case WINDOW_TYPE_NORESIZE:
             {
                 XSizeHints* sizeHints {XAllocSizeHints()};
+                TRACK_LEAK_ALLOC(sizeHints, LeakType::CUSTOM, "XAllocSizeHints");
                 if (sizeHints)
                 {
                     sizeHints->flags      = PMinSize | PMaxSize | PSize | USSize;
@@ -92,6 +94,7 @@ namespace drop::platform
                     sizeHints->height     = info->height;
 
                     XSetWMNormalHints(display, window, sizeHints);
+                    TRACK_LEAK_FREE(sizeHints);
                     XFree(sizeHints);
                 }
             }
@@ -231,7 +234,6 @@ namespace drop::platform
 
         ::Window root {XDefaultRootWindow(display)};
         i32      defaultScreen {XDefaultScreen(display)};
-        info.context = XDefaultGC(display, defaultScreen);
 
         u32                  attribValueMask {CWBackPixel | CWEventMask};
         XSetWindowAttributes attribs {};
@@ -261,6 +263,7 @@ namespace drop::platform
             &attribs);
         SM_ASSERT(info.window, "Failed to create window.");
         SM_TRACE("Created window: %d", info.window);
+        TRACK_LEAK_ALLOC((void*)info.window, LeakType::HANDLE, "Xlib XID Window");
 
         XStoreName(display, info.window, initInfo->title);
         ApplyWindowTypeHints(info.window, initInfo);
@@ -324,12 +327,17 @@ namespace drop::platform
             parentInfo.children.erase(it, parentInfo.children.end());
         }
 
+        if (id::IsValid(info.contextID))
+        {
+            graphics::DestroyGraphicsContext(info.contextID);
+        }
+
         info.isAlive = false;
         windowMap.erase(info.window);
+        TRACK_LEAK_FREE((void*) info.window);
         XUnmapWindow(display, info.window);
         XDestroyWindow(display, info.window);
         // XFreeGC(info->display, info->context); // Only free context if we created manually (in future).
-        info.context  = nullptr;
         info.window   = 0;
         info.callback = nullptr;
         freeIds.push_back(id);
@@ -342,11 +350,28 @@ namespace drop::platform
     {
         XCloseDisplay(display);
         display = nullptr;
+
+		windows.clear();
+		generations.clear();
+		freeIds.clear();
+		windowMap.clear();
+
+		wmDeleteMessageAtom = 0;
+		wmStateAtom         = 0;
+		wmMaxHorzAtom       = 0;
+		wmMaxVertAtom       = 0;
+		wmTypeAtom          = 0;
+		wmDialogAtom        = 0;
     }
 
     WindowHandle GetWindowHandle(windowID id)
     {
         return windows[id::GetIndex(id)].window;
+    }
+
+    WindowDC GetWindowDC(windowID id)
+    {
+        return display;
     }
 
     void Update(bool& running)
@@ -364,8 +389,15 @@ namespace drop::platform
         }
     }
 
-    Display* GetDisplay()
-    {
-        return display;
-    }
+    void SetGraphicsContext(windowID id, id::idType contextID)
+	{
+		if (!IsAlive(id))
+		{
+			SM_ASSERT(false, "Invalid generation in windowID or window is not alive.");
+            return;
+		}
+		
+		WindowInfo* info {&windows[id::GetIndex(id)]};
+        info->contextID = graphics::contextID {contextID};
+	}
 } // namespace drop::platform

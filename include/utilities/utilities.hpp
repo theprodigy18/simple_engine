@@ -21,3 +21,5 @@ namespace drop::utl
 	using deque = std::deque<T>;
 } // namespace drop::utl
 #endif
+
+//#define BIT(x) 1 << x

@@ -5,9 +5,10 @@
 #include <type_traits>
 
 // Common headers.
-#include "logger.hpp"
+#include "utilities/logger.hpp"
 #include "primitive_type.hpp"
 #include "id.hpp"
 #include "utilities/utilities.hpp"
+#include "utilities/leak_tracker.hpp"
 
 

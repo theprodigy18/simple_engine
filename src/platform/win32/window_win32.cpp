@@ -1,4 +1,6 @@
 #include "platform/window.hpp"
+#include "graphics/graphics.hpp"
+
 
 namespace drop::platform
 {
@@ -6,15 +8,16 @@ namespace drop::platform
     {
         struct WindowInfo
         {
-            HWND hwnd {nullptr};
-            HDC  hdc {nullptr};
-            RECT rc {0, 0, 0, 0};
-            bool isAlive {false};
+            HWND                hwnd {nullptr};
+            HDC                 hdc {nullptr};
+            RECT                rc {0, 0, 0, 0};
+            bool                isAlive {false};
+            graphics::contextID contextID {id::invalidID};
         };
 
         utl::vector<WindowInfo>         windows;
         utl::vector<id::generationType> generations;
-        utl::deque<windowID>            freeIds;
+        utl::deque<windowID>            freeIDs;
 
         i32 activeWindowCount {0};
 
@@ -127,7 +130,7 @@ namespace drop::platform
             WNDCLASSEXW wcex {};
             ZeroMemory(&wcex, sizeof(WNDCLASSEXW)); // Just make sure it's zeroed.
             wcex.cbSize        = sizeof(WNDCLASSEXW);
-            wcex.style         = CS_HREDRAW | CS_VREDRAW;
+            wcex.style         = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
             wcex.lpfnWndProc   = InternalWndProc;
             wcex.cbClsExtra    = 0;
             wcex.cbWndExtra    = sizeof(initInfo->callback);
@@ -196,16 +199,19 @@ namespace drop::platform
             nullptr);
 
         SM_ASSERT(info.hwnd, "Failed to create window.");
+        TRACK_LEAK_ALLOC(info.hwnd, LeakType::HANDLE, "HWND");
 
         info.rc = rc;
 
         info.hdc = GetDC(info.hwnd);
         SM_ASSERT(info.hdc, "Failed to get device context.");
+		TRACK_LEAK_ALLOC(info.hdc, LeakType::HANDLE, "HDC");
+
         info.isAlive = true;
 
         windowID id {id::invalidID};
 
-        if (freeIds.size() <= id::minDeletedElements)
+        if (freeIDs.size() <= id::minDeletedElements)
         {
             id = windowID {(id::idType) windows.size()};
             SM_ASSERT(id::IsValid(id), "Failed to get window id.");
@@ -214,9 +220,9 @@ namespace drop::platform
         }
         else
         {
-            id = freeIds.front();
+            id = freeIDs.front();
             SM_ASSERT(!id::IsValid(id), "This id still in use.");
-            freeIds.pop_front();
+            freeIDs.pop_front();
             id                        = windowID {id::NewGeneration(id)};
             windows[id::GetIndex(id)] = info;
             generations[id::GetIndex(id)]++;
@@ -241,12 +247,20 @@ namespace drop::platform
         WindowInfo* info {&windows[index]};
         SM_ASSERT(info->isAlive, "Window is not alive.");
 
+		if (id::IsValid(info->contextID))
+		{
+			graphics::DestroyGraphicsContext(info->contextID);
+		}
+
         info->isAlive = false;
+
+		TRACK_LEAK_FREE(info->hwnd);
+		TRACK_LEAK_FREE(info->hdc);
         ReleaseDC(info->hwnd, info->hdc);
         DestroyWindow(info->hwnd);
         info->hwnd = nullptr;
         info->hdc  = nullptr;
-        freeIds.push_back(id);
+        freeIDs.push_back(id);
         activeWindowCount--;
     }
 
@@ -257,11 +271,21 @@ namespace drop::platform
         UnregisterClassW(GetWindowClassName(WINDOW_TYPE_NORMAL), hInstance);
         UnregisterClassW(GetWindowClassName(WINDOW_TYPE_CHILD), hInstance);
         UnregisterClassW(GetWindowClassName(WINDOW_TYPE_NORESIZE), hInstance);
+
+        registeredClasses = 0;
+        windows.clear();
+        generations.clear();
+        freeIDs.clear();
     }
 
     WindowHandle GetWindowHandle(windowID id)
     {
         return GetWindowInfoFromID(id).hwnd;
+    }
+
+    WindowDC GetWindowDC(windowID id)
+    {
+        return GetWindowInfoFromID(id).hdc;
     }
 
     void Update(bool& running)
@@ -276,6 +300,23 @@ namespace drop::platform
                 running = false;
             }
         }
+
+        if (activeWindowCount <= 0)
+        {
+            PostQuitMessage(0);
+        }
     }
+
+	void SetGraphicsContext(windowID id, id::idType contextID)
+	{
+		if (!IsAlive(id))
+		{
+			SM_ASSERT(false, "Invalid generation in windowID or window is not alive.");
+            return;
+		}
+		
+		WindowInfo* info {&windows[id::GetIndex(id)]};
+        info->contextID = graphics::contextID {contextID};
+	}
 
 } // namespace drop::platform
